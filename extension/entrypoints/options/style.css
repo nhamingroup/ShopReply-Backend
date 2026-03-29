@@ -1,0 +1,7 @@
+@import "tailwindcss";
+@source "../popup/App.tsx";
+@source "../options/App.tsx";
+@source "../../components/StatusBadge.tsx";
+@source "../../components/QATable.tsx";
+@source "../../components/ImportModal.tsx";
+@source "../../hooks/useI18n.tsx";

@@ -1,0 +1,28 @@
+import { defineConfig } from 'wxt'
+import tailwindcss from '@tailwindcss/vite'
+
+export default defineConfig({
+  modules: ['@wxt-dev/module-react'],
+  manifest: {
+    name: 'ShopReply — Auto Reply AI for Facebook Messenger & Zalo',
+    description: 'AI auto-reply chatbot for Facebook Messenger & Zalo. Auto-detect questions, suggest answers from your Q&A database. 100% local, no cloud.',
+    version: '1.0.0',
+    permissions: ['storage', 'tabs', 'notifications', 'alarms'],
+    host_permissions: [
+      'https://www.facebook.com/*',
+      'https://facebook.com/*',
+      'https://chat.zalo.me/*',
+      'http://localhost:3939/*'
+    ]
+  },
+  vite: () => ({
+    plugins: [tailwindcss()],
+    build: {
+      minify: 'terser',
+      terserOptions: {
+        compress: { drop_console: false, drop_debugger: true },
+        mangle: { toplevel: false },
+      },
+    },
+  }),
+})

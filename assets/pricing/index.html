@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ShopReply — Bảng giá</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --blue-50: #eff6ff; --blue-100: #dbeafe; --blue-200: #bfdbfe;
+      --blue-500: #3b82f6; --blue-600: #2563eb; --blue-700: #1d4ed8; --blue-800: #1e40af;
+      --purple-50: #faf5ff; --purple-100: #f3e8ff; --purple-200: #e9d5ff;
+      --purple-500: #a855f7; --purple-600: #9333ea; --purple-700: #7e22ce;
+      --green-500: #22c55e; --green-600: #16a34a;
+      --gray-50: #f9fafb; --gray-100: #f3f4f6; --gray-200: #e5e7eb;
+      --gray-300: #d1d5db; --gray-400: #9ca3af; --gray-500: #6b7280;
+      --gray-600: #4b5563; --gray-700: #374151; --gray-800: #1f2937; --gray-900: #111827;
+      --orange-100: #ffedd5; --orange-700: #c2410c;
+    }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      color: var(--gray-800); background: var(--gray-50); line-height: 1.7; font-size: 16px;
+    }
+    a { color: var(--blue-600); text-decoration: none; }
+
+    /* Header */
+    .header {
+      background: #fff; border-bottom: 1px solid var(--gray-200);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .header-inner {
+      max-width: 1100px; margin: 0 auto; padding: 0 24px;
+      display: flex; align-items: center; justify-content: space-between; height: 64px;
+    }
+    .header-brand { display: flex; align-items: center; gap: 12px; }
+    .logo {
+      width: 40px; height: 40px; background: var(--green-600); border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 20px; font-weight: 800;
+    }
+    .header-title { font-size: 20px; font-weight: 700; color: var(--gray-900); }
+    .header-subtitle { font-size: 13px; color: var(--gray-500); }
+
+    /* Lang switcher */
+    .lang-switcher { display: inline-flex; border: 1px solid var(--gray-300); border-radius: 8px; overflow: hidden; }
+    .lang-btn {
+      display: flex; align-items: center; gap: 4px; padding: 4px 10px; font-size: 12px;
+      font-weight: 600; border: none; cursor: pointer; background: #fff; color: var(--gray-500); transition: all 0.15s;
+    }
+    .lang-btn:first-child { border-right: 1px solid var(--gray-300); }
+    .lang-btn.active { background: var(--blue-600); color: #fff; }
+    .lang-btn:hover:not(.active) { background: var(--gray-100); }
+    .lang-flag { width: 18px; height: 13px; border-radius: 2px; }
+
+    /* Hero */
+    .hero {
+      background: linear-gradient(135deg, var(--blue-600) 0%, var(--purple-700) 100%);
+      color: #fff; text-align: center; padding: 60px 24px 50px;
+    }
+    .hero h1 { font-size: 36px; font-weight: 800; margin-bottom: 12px; }
+    .hero p { font-size: 18px; opacity: 0.9; max-width: 600px; margin: 0 auto; }
+
+    /* Pricing cards */
+    .pricing-section { max-width: 1100px; margin: -40px auto 0; padding: 0 24px 60px; position: relative; z-index: 1; }
+    .pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+
+    .pricing-card {
+      background: #fff; border-radius: 16px; border: 2px solid var(--gray-200);
+      padding: 32px 28px; text-align: center; position: relative; box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .pricing-card:hover { transform: translateY(-4px); box-shadow: 0 8px 30px rgba(0,0,0,0.1); }
+    .pricing-card.popular { border-color: var(--purple-500); }
+    .pricing-card.popular .badge {
+      position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+      background: linear-gradient(135deg, var(--purple-500), var(--purple-700));
+      color: #fff; padding: 4px 16px; border-radius: 20px; font-size: 12px; font-weight: 700;
+    }
+
+    .pricing-card .icon {
+      width: 56px; height: 56px; border-radius: 16px; margin: 0 auto 16px;
+      display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 800; color: #fff;
+    }
+    .pricing-card .plan-name { font-size: 22px; font-weight: 700; color: var(--gray-900); margin-bottom: 4px; }
+    .pricing-card .plan-desc { font-size: 14px; color: var(--gray-500); margin-bottom: 20px; }
+
+    .pricing-card .price { font-size: 32px; font-weight: 800; color: var(--gray-900); }
+    .pricing-card .price-period { font-size: 14px; color: var(--gray-500); font-weight: 400; }
+    .pricing-card .price-yearly { font-size: 13px; color: var(--gray-400); margin-top: 4px; margin-bottom: 24px; }
+
+    .pricing-card .features { list-style: none; text-align: left; margin-bottom: 28px; }
+    .pricing-card .features li {
+      padding: 8px 0; font-size: 14px; color: var(--gray-700);
+      display: flex; align-items: flex-start; gap: 8px;
+    }
+    .pricing-card .features li::before { content: '✓'; color: var(--green-500); font-weight: 700; flex-shrink: 0; }
+    .pricing-card .features li.disabled { color: var(--gray-400); }
+    .pricing-card .features li.disabled::before { content: '—'; color: var(--gray-300); }
+
+    .pricing-card .cta {
+      display: block; width: 100%; padding: 12px; border-radius: 10px;
+      font-size: 15px; font-weight: 600; text-align: center; cursor: pointer;
+      border: 2px solid var(--gray-300); background: #fff; color: var(--gray-700); transition: all 0.2s;
+    }
+    .pricing-card .cta:hover { border-color: var(--blue-500); color: var(--blue-600); }
+    .pricing-card .cta.primary {
+      background: var(--blue-600); color: #fff; border-color: var(--blue-600);
+    }
+    .pricing-card .cta.primary:hover { background: var(--blue-700); border-color: var(--blue-700); }
+    .pricing-card .cta.pro {
+      background: linear-gradient(135deg, var(--purple-500), var(--purple-700)); color: #fff; border: none;
+    }
+    .pricing-card .cta.pro:hover { opacity: 0.9; }
+
+    /* FAQ */
+    .faq-section { max-width: 700px; margin: 0 auto; padding: 0 24px 60px; }
+    .faq-section h2 { text-align: center; font-size: 28px; font-weight: 700; margin-bottom: 32px; color: var(--gray-900); }
+    .faq-item {
+      background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+      padding: 20px 24px; margin-bottom: 12px;
+    }
+    .faq-item h3 { font-size: 15px; font-weight: 600; color: var(--gray-900); margin: 0 0 6px; }
+    .faq-item p { font-size: 14px; color: var(--gray-600); margin: 0; line-height: 1.6; }
+
+    /* Footer */
+    .footer {
+      background: var(--gray-900); color: var(--gray-400); padding: 32px 24px; text-align: center;
+    }
+    .footer p { font-size: 13px; }
+    .footer a { color: var(--blue-200); }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .pricing-grid { grid-template-columns: 1fr; max-width: 400px; margin: 0 auto; }
+      .hero h1 { font-size: 28px; }
+      .hero p { font-size: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-inner">
+    <div class="header-brand">
+      <div class="logo">S</div>
+      <div>
+        <div class="header-title">ShopReply</div>
+        <div class="header-subtitle" data-i18n="header_sub">Bảng giá & Gói dịch vụ</div>
+      </div>
+    </div>
+    <div class="lang-switcher">
+      <button class="lang-btn active" onclick="switchLang('vi')" id="btn-vi">
+        <svg class="lang-flag" viewBox="0 0 900 600"><rect width="900" height="600" fill="#da251d"/><polygon points="450,120 520,330 340,210 560,210 380,330" fill="#ff0"/></svg> VI
+      </button>
+      <button class="lang-btn" onclick="switchLang('en')" id="btn-en">
+        <svg class="lang-flag" viewBox="0 0 900 600"><rect width="900" height="600" fill="#00247d"/><path d="M0,0L900,600M900,0L0,600" stroke="#fff" stroke-width="80"/><path d="M0,0L900,600M900,0L0,600" stroke="#cf142b" stroke-width="50"/><path d="M450,0V600M0,300H900" stroke="#fff" stroke-width="120"/><path d="M450,0V600M0,300H900" stroke="#cf142b" stroke-width="70"/></svg> EN
+      </button>
+    </div>
+  </div>
+</header>
+
+<div class="hero">
+  <h1 data-i18n="hero_title">Chọn gói phù hợp với shop của bạn</h1>
+  <p data-i18n="hero_desc">Bắt đầu miễn phí. Nâng cấp khi shop phát triển. Dữ liệu luôn an toàn trên máy bạn.</p>
+</div>
+
+<div class="pricing-section">
+  <div class="pricing-grid">
+
+    <!-- FREE -->
+    <div class="pricing-card">
+      <div class="icon" style="background: var(--gray-500);">F</div>
+      <div class="plan-name" data-i18n="free_name">Miễn phí</div>
+      <div class="plan-desc" data-i18n="free_desc">Dùng thử, shop nhỏ</div>
+      <div class="price" data-i18n="free_price">0₫</div>
+      <div class="price-period" data-i18n="free_period">mãi mãi</div>
+      <div class="price-yearly">&nbsp;</div>
+      <ul class="features">
+        <li data-i18n="free_f1">1 nền tảng (Facebook hoặc Zalo)</li>
+        <li data-i18n="free_f2">30 cặp câu hỏi - trả lời</li>
+        <li data-i18n="free_f3">Gợi ý câu trả lời (không tự gửi)</li>
+        <li data-i18n="free_f4">Import file CSV/JSON</li>
+        <li class="disabled" data-i18n="free_f5">Không có auto-reply</li>
+        <li class="disabled" data-i18n="free_f6">Không có AI gợi ý</li>
+      </ul>
+      <button class="cta" data-i18n="free_cta">Dùng ngay</button>
+    </div>
+
+    <!-- BASIC -->
+    <div class="pricing-card">
+      <div class="icon" style="background: var(--blue-600);">B</div>
+      <div class="plan-name">Basic</div>
+      <div class="plan-desc" data-i18n="basic_desc">Shop vừa, cần auto-reply</div>
+      <div class="price" data-i18n="basic_price">299K</div>
+      <div class="price-period" data-i18n="basic_period">/tháng</div>
+      <div class="price-yearly" data-i18n="basic_yearly">hoặc 2.499K/năm (tiết kiệm 31%)</div>
+      <ul class="features">
+        <li data-i18n="basic_f1">1 nền tảng (Facebook hoặc Zalo)</li>
+        <li data-i18n="basic_f2">500 cặp câu hỏi - trả lời</li>
+        <li data-i18n="basic_f3">Auto-reply tự động gửi</li>
+        <li data-i18n="basic_f4">Import file CSV/JSON</li>
+        <li data-i18n="basic_f5">AI gợi ý câu trả lời (Ollama)</li>
+        <li class="disabled" data-i18n="basic_f6">Không quét lịch sử chat</li>
+      </ul>
+      <button class="cta primary" data-i18n="basic_cta">Mua Basic</button>
+    </div>
+
+    <!-- PRO -->
+    <div class="pricing-card popular">
+      <span class="badge" data-i18n="popular_badge">Phổ biến nhất</span>
+      <div class="icon" style="background: linear-gradient(135deg, var(--purple-500), var(--purple-700));">P</div>
+      <div class="plan-name">Pro</div>
+      <div class="plan-desc" data-i18n="pro_desc">Shop lớn, đa nền tảng</div>
+      <div class="price" data-i18n="pro_price">499K</div>
+      <div class="price-period" data-i18n="pro_period">/tháng</div>
+      <div class="price-yearly" data-i18n="pro_yearly">hoặc 4.499K/năm (tiết kiệm 25%)</div>
+      <ul class="features">
+        <li data-i18n="pro_f1">Facebook + Zalo đồng thời</li>
+        <li data-i18n="pro_f2">Không giới hạn Q&A</li>
+        <li data-i18n="pro_f3">Auto-reply tự động gửi</li>
+        <li data-i18n="pro_f4">Quét lịch sử chat tự trích xuất Q&A</li>
+        <li data-i18n="pro_f5">AI gợi ý + Tùy chỉnh giọng văn</li>
+        <li data-i18n="pro_f6">Hỗ trợ ưu tiên</li>
+      </ul>
+      <button class="cta pro" data-i18n="pro_cta">Mua Pro</button>
+    </div>
+
+  </div>
+</div>
+
+<div class="faq-section">
+  <h2 data-i18n="faq_title">Câu hỏi thường gặp</h2>
+
+  <div class="faq-item">
+    <h3 data-i18n="faq_q1">Thanh toán bằng cách nào?</h3>
+    <p data-i18n="faq_a1">Chuyển khoản ngân hàng (QR Banking). Sau khi thanh toán, bạn nhận mã kích hoạt qua email trong 5 phút.</p>
+  </div>
+  <div class="faq-item">
+    <h3 data-i18n="faq_q2">Dữ liệu có bị gửi lên cloud không?</h3>
+    <p data-i18n="faq_a2">Không. Mọi dữ liệu đều ở trên máy bạn. Mã kích hoạt chỉ xác thực offline, không cần kết nối server.</p>
+  </div>
+  <div class="faq-item">
+    <h3 data-i18n="faq_q3">Có thể nâng cấp/hạ cấp gói không?</h3>
+    <p data-i18n="faq_a3">Có. Bạn có thể nâng cấp bất kỳ lúc nào. Khi hạ cấp, gói hiện tại vẫn hoạt động đến hết thời hạn.</p>
+  </div>
+  <div class="faq-item">
+    <h3 data-i18n="faq_q4">Nếu vượt giới hạn Q&A thì sao?</h3>
+    <p data-i18n="faq_a4">Bot vẫn hoạt động với Q&A hiện có. Bạn chỉ không thể thêm mới cho đến khi nâng cấp hoặc xóa bớt Q&A cũ.</p>
+  </div>
+  <div class="faq-item">
+    <h3 data-i18n="faq_q5">Hoàn tiền được không?</h3>
+    <p data-i18n="faq_a5">Hoàn tiền 100% trong 7 ngày đầu nếu không hài lòng. Liên hệ qua email nhamingroup@gmail.com.</p>
+  </div>
+</div>
+
+<footer class="footer">
+  <p>&copy; 2026 ShopReply. <span data-i18n="footer_text">Dữ liệu của bạn luôn ở trên máy bạn.</span></p>
+  <p style="margin-top:8px;"><a href="mailto:nhamingroup@gmail.com">nhamingroup@gmail.com</a></p>
+</footer>
+
+<script>
+  var currentLang = 'vi';
+  var translations = {
+    en: {
+      header_sub: 'Pricing & Plans',
+      hero_title: 'Choose the right plan for your shop',
+      hero_desc: 'Start free. Upgrade as you grow. Your data always stays on your machine.',
+      free_name: 'Free', free_desc: 'Try it out, small shops',
+      free_price: '$0', free_period: 'forever',
+      free_f1: '1 platform (Facebook or Zalo)', free_f2: '30 Q&A pairs',
+      free_f3: 'Suggest replies (no auto-send)', free_f4: 'Import CSV/JSON files',
+      free_f5: 'No auto-reply', free_f6: 'No AI suggestions',
+      free_cta: 'Get Started',
+      basic_desc: 'Medium shops, need auto-reply',
+      basic_price: '$8', basic_period: '/month',
+      basic_yearly: 'or $79/year (save 25%)',
+      basic_f1: '1 platform (Facebook or Zalo)', basic_f2: '500 Q&A pairs',
+      basic_f3: 'Auto-reply (auto-send)', basic_f4: 'Import CSV/JSON files',
+      basic_f5: 'AI suggestions (Ollama)', basic_f6: 'No chat history scan',
+      basic_cta: 'Buy Basic',
+      popular_badge: 'Most Popular',
+      pro_desc: 'Large shops, multi-platform',
+      pro_price: '$16', pro_period: '/month',
+      pro_yearly: 'or $149/year (save 25%)',
+      pro_f1: 'Facebook + Zalo simultaneously', pro_f2: 'Unlimited Q&A pairs',
+      pro_f3: 'Auto-reply (auto-send)', pro_f4: 'Scan chat history to extract Q&A',
+      pro_f5: 'AI suggestions + Custom tone', pro_f6: 'Priority support',
+      pro_cta: 'Buy Pro',
+      faq_title: 'Frequently Asked Questions',
+      faq_q1: 'How do I pay?', faq_a1: 'Bank transfer (QR Banking). After payment, you receive your activation key via email within 5 minutes.',
+      faq_q2: 'Is my data sent to the cloud?', faq_a2: 'No. All data stays on your machine. The license key validates offline, no server connection needed.',
+      faq_q3: 'Can I upgrade/downgrade?', faq_a3: 'Yes. You can upgrade anytime. When downgrading, your current plan stays active until expiry.',
+      faq_q4: 'What if I exceed the Q&A limit?', faq_a4: 'The bot still works with existing Q&A. You just cannot add new ones until you upgrade or delete old Q&A.',
+      faq_q5: 'Can I get a refund?', faq_a5: '100% refund within the first 7 days if not satisfied. Contact nhamingroup@gmail.com.',
+      footer_text: 'Your data always stays on your machine.',
+    }
+  };
+
+  var viTexts = {};
+  document.querySelectorAll('[data-i18n]').forEach(function(el) {
+    viTexts[el.getAttribute('data-i18n')] = el.innerHTML;
+  });
+
+  function switchLang(lang) {
+    currentLang = lang;
+    document.getElementById('btn-vi').classList.toggle('active', lang === 'vi');
+    document.getElementById('btn-en').classList.toggle('active', lang === 'en');
+    document.documentElement.lang = lang;
+    document.title = lang === 'vi' ? 'ShopReply — Bảng giá' : 'ShopReply — Pricing';
+    document.querySelectorAll('[data-i18n]').forEach(function(el) {
+      var key = el.getAttribute('data-i18n');
+      if (lang === 'en' && translations.en[key]) el.innerHTML = translations.en[key];
+      else if (lang === 'vi' && viTexts[key]) el.innerHTML = viTexts[key];
+    });
+  }
+</script>
+</body>
+</html>

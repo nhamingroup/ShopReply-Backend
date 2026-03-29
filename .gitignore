@@ -1,5 +1,54 @@
-# Ignore everything
-*
+# Dependencies
+node_modules/
 
-# Except gitignore itself
-!.gitignore
+# Build output
+.output/
+.wxt/
+dist/
+backend/build/
+
+# Database & logs
+*.db
+*.log
+
+# Environment
+.env
+.env.*
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test results
+test-results/
+
+# Screenshots (large binary files)
+screenshots/
+
+# Temp & backup files
+*.tmp
+*.backup
+
+# Docs/research (not source code)
+brainstorm.md
+all_approaches_analysis.md
+competitor_pricing_research.md
+deep_audit.md
+platform_policy_verification.md
+policy_verification.md
+summary_final.md
+
+# Python
+__pycache__/
+*.pyc
+capture_screens.py
+
+# Submodules / embedded repos
+assets/guide/
+
+# Executables
+*.exe
