@@ -5,9 +5,9 @@ export default defineConfig({
   modules: ['@wxt-dev/module-react'],
   manifest: {
     name: 'ShopReply — Auto Reply AI for Facebook Messenger & Zalo',
-    description: 'AI auto-reply chatbot for Facebook Messenger & Zalo. Auto-detect questions, suggest answers from your Q&A database. 100% local, no cloud.',
-    version: '1.0.0',
-    permissions: ['storage', 'tabs', 'notifications', 'alarms'],
+    description: 'AI auto-reply for Facebook Messenger & Zalo. Detect questions, suggest answers from your Q&A database. 100% local, no cloud.',
+    version: '1.1.0',
+    permissions: ['storage', 'notifications', 'alarms'],
     host_permissions: [
       'https://www.facebook.com/*',
       'https://facebook.com/*',

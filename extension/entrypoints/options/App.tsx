@@ -1948,7 +1948,7 @@ function AboutTab({ licenseHook }: { licenseHook: ReturnType<typeof useLicense> 
   const handleReportIssue = () => {
     const subject = encodeURIComponent('ShopReply - Bug Report');
     const body = encodeURIComponent(
-      `ShopReply version: 1.0.0\n` +
+      `ShopReply version: 1.1.0\n` +
       `Browser: ${navigator.userAgent}\n` +
       `Date: ${new Date().toISOString()}\n\n` +
       `Describe the issue:\n\n`
@@ -2172,7 +2172,7 @@ function AboutTab({ licenseHook }: { licenseHook: ReturnType<typeof useLicense> 
               </div>
             </div>
             <div className="text-sm text-gray-600">
-              {t('version')} <span className="font-medium">1.0.0</span> · {t('local_first')}
+              {t('version')} <span className="font-medium">1.1.0</span> · {t('local_first')}
             </div>
           </div>
           <div className="bg-white rounded-xl border border-gray-200 p-6">
@@ -2187,20 +2187,29 @@ function AboutTab({ licenseHook }: { licenseHook: ReturnType<typeof useLicense> 
           </div>
         </div>
 
-        {/* Guide + Donate — secondary, less prominent */}
-        <div className="flex items-center gap-4">
+        {/* Guide + Referral + Donate — secondary */}
+        <div className="flex items-center gap-3">
           <a
             href="https://nhamingroup.github.io/shopReply/"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-300 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-50 transition-colors no-underline"
+            className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 border border-gray-300 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-50 transition-colors no-underline"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
             {t('user_guide')}
           </a>
+          <a
+            href="https://nhamingroup.github.io/shopReply/affiliate.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 border border-green-300 text-green-700 text-sm font-medium rounded-xl hover:bg-green-50 transition-colors no-underline"
+          >
+            <span>🎁</span>
+            {t('referral_program')}
+          </a>
           <button
             onClick={() => setShowDonate(true)}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 border border-amber-300 text-amber-700 text-sm font-medium rounded-xl hover:bg-amber-50 transition-colors"
+            className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 border border-amber-300 text-amber-700 text-sm font-medium rounded-xl hover:bg-amber-50 transition-colors"
           >
             <span>☕</span>
             {t('donate_coffee')}
