@@ -11,6 +11,8 @@ import type {
   ExtensionResponse,
   LogResult,
   LogEntry,
+  FlowResponse,
+  FlowStep,
 } from '@/types/messages';
 import type { QAPair } from '@/types/qa';
 
@@ -23,13 +25,14 @@ function sendMsg<T>(msg: ExtensionMessage): Promise<ExtensionResponse<T>> {
   });
 }
 
-type TabId = 'qa' | 'log' | 'settings' | 'import' | 'about';
+type TabId = 'qa' | 'flows' | 'log' | 'settings' | 'import' | 'about';
 
 function App() {
   const { t } = useI18n();
 
   const tabs: Array<{ id: TabId; labelKey: Parameters<typeof t>[0] }> = [
     { id: 'qa', labelKey: 'tab_qa' },
+    { id: 'flows', labelKey: 'tab_flows' },
     { id: 'log', labelKey: 'tab_log' },
     { id: 'settings', labelKey: 'tab_settings' },
     { id: 'import', labelKey: 'tab_import' },
@@ -41,7 +44,7 @@ function App() {
     return tabs.some((t) => t.id === hash) ? hash : 'qa';
   });
   const licenseHook = useLicense();
-  const { settings, updateSettings } = useSettings(licenseHook.limits.multiPlatform);
+  const { settings, updateSettings } = useSettings(licenseHook.limits.multiPlatform, !licenseHook.loading);
   const { isConnected, healthData, checkHealth } = useBackend();
 
   useEffect(() => {
@@ -68,8 +71,12 @@ function App() {
           <div className="flex items-center h-16">
             {/* Left: Brand */}
             <div className="flex items-center gap-3 w-56 flex-shrink-0">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white text-sm font-bold">
-                S
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center shadow-sm" style={{ background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)' }}>
+                <svg viewBox="0 0 32 32" width="22" height="22" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M4 7a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v3a3 3 0 0 1-3 3h-2l-3 3v-3H7a3 3 0 0 1-3-3V7z" fill="#fff" fillOpacity="0.4"/>
+                  <path d="M11 14a3 3 0 0 1 3-3h11a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3h-4l-4 4v-4h-3a3 3 0 0 1-3-3v-6z" fill="#fff"/>
+                  <path d="M20 14.5l-3 4.5h2.5l-1 3.5 3.5-5h-2.5l0.5-3z" fill="#2563eb"/>
+                </svg>
               </div>
               <h1 className="text-lg font-bold text-gray-900">ShopReply</h1>
             </div>
@@ -105,6 +112,7 @@ function App() {
       {/* Tab content — 32px top padding between header and content */}
       <div className="max-w-6xl mx-auto px-6 py-8">
         {activeTab === 'qa' && <QADatabaseTab />}
+        {activeTab === 'flows' && <FlowsTab />}
         {activeTab === 'log' && <AutoReplyLogTab />}
         {activeTab === 'settings' && (
           <SettingsTab settings={settings} updateSettings={updateSettings} licenseHook={licenseHook} healthData={healthData} onRefreshHealth={checkHealth} />
@@ -318,6 +326,421 @@ function AddEditQAModal({ pair, onClose, onSaved }: {
             className="px-6 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
           >
             {saving ? t('saving') : pair ? t('update') : t('add')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Tab: Flows (Kịch bản thu thập thông tin)
+// ============================================================
+
+function FlowsTab() {
+  const { t, lang } = useI18n();
+  const [flows, setFlows] = useState<FlowResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editingFlow, setEditingFlow] = useState<FlowResponse | null>(null);
+  const [showEditor, setShowEditor] = useState(false);
+
+  const fetchFlows = useCallback(async () => {
+    setLoading(true);
+    const res = await sendMsg<{ data: FlowResponse[] }>({ type: 'MSG_GET_FLOWS', payload: {} });
+    if (res.success && res.data) {
+      const data = res.data as unknown;
+      // Backend wraps in { success: true, data: [...] }
+      const list = Array.isArray(data) ? data : (data as { data?: FlowResponse[] }).data ?? [];
+      setFlows(list);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { fetchFlows(); }, [fetchFlows]);
+
+  const handleToggle = async (flow: FlowResponse) => {
+    await sendMsg({ type: 'MSG_TOGGLE_FLOW', payload: { id: flow.id } });
+    fetchFlows();
+  };
+
+  const handleDelete = async (flow: FlowResponse) => {
+    const msg = lang === 'vi' ? `Xóa kịch bản "${flow.name}"?` : `Delete flow "${flow.name}"?`;
+    if (!confirm(msg)) return;
+    await sendMsg({ type: 'MSG_DELETE_FLOW', payload: { id: flow.id } });
+    fetchFlows();
+  };
+
+  const handleEdit = (flow: FlowResponse) => {
+    setEditingFlow(flow);
+    setShowEditor(true);
+  };
+
+  const handleAdd = () => {
+    setEditingFlow(null);
+    setShowEditor(true);
+  };
+
+  const handleSaved = () => {
+    setShowEditor(false);
+    setEditingFlow(null);
+    fetchFlows();
+  };
+
+  const triggerLabel = (mode: string) => {
+    if (mode === 'keyword') return t('trigger_keyword');
+    if (mode === 'first_message') return t('trigger_first_message');
+    return t('trigger_manual');
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">{t('flows_title')}</h2>
+          <p className="text-sm text-gray-500 mt-1">{t('flows_desc')}</p>
+        </div>
+        <button
+          onClick={handleAdd}
+          className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          {t('add_flow')}
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="text-center py-12 text-gray-400">{t('loading')}</div>
+      ) : flows.length === 0 ? (
+        <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+          <div className="text-4xl mb-3 text-gray-300">&#128196;</div>
+          <h3 className="text-lg font-semibold text-gray-700 mb-1">{t('no_flows_yet')}</h3>
+          <p className="text-sm text-gray-500 mb-4">{t('no_flows_desc')}</p>
+          <button
+            onClick={handleAdd}
+            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            {t('add_flow')}
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-3 mt-4">
+          {flows.map((flow) => (
+            <div key={flow.id} className="bg-white rounded-xl border border-gray-200 p-5 flex items-center gap-4">
+              {/* Toggle */}
+              <button
+                onClick={() => handleToggle(flow)}
+                className={`w-11 h-6 rounded-full relative transition-colors flex-shrink-0 ${
+                  flow.is_active ? 'bg-green-500' : 'bg-gray-300'
+                }`}
+              >
+                <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                  flow.is_active ? 'left-[22px]' : 'left-0.5'
+                }`} />
+              </button>
+
+              {/* Info */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-gray-900 truncate">{flow.name}</h3>
+                  <span className={`px-2 py-0.5 text-xs rounded-full ${
+                    flow.is_active
+                      ? 'bg-green-50 text-green-700'
+                      : 'bg-gray-100 text-gray-500'
+                  }`}>
+                    {flow.is_active ? t('flow_active') : t('flow_inactive')}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
+                  <span>{triggerLabel(flow.trigger_mode)}</span>
+                  {flow.trigger_mode === 'keyword' && flow.trigger_keywords && (
+                    <span className="text-gray-400">
+                      {flow.trigger_keywords.split(',').slice(0, 3).map(k => k.trim()).join(', ')}
+                      {flow.trigger_keywords.split(',').length > 3 && '...'}
+                    </span>
+                  )}
+                  <span>{flow.steps.length} {t('flow_steps_count')}</span>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <button
+                  onClick={() => handleEdit(flow)}
+                  className="px-3 py-1.5 text-xs text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                >
+                  {t('edit')}
+                </button>
+                <button
+                  onClick={() => handleDelete(flow)}
+                  className="px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                >
+                  {t('delete')}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showEditor && (
+        <FlowEditorModal
+          flow={editingFlow}
+          onClose={() => { setShowEditor(false); setEditingFlow(null); }}
+          onSaved={handleSaved}
+        />
+      )}
+    </div>
+  );
+}
+
+// ---- Flow Editor Modal ----
+
+function FlowEditorModal({ flow, onClose, onSaved }: {
+  flow: FlowResponse | null;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const { t, lang } = useI18n();
+  const isNew = !flow;
+
+  const [name, setName] = useState(flow?.name ?? '');
+  const [triggerMode, setTriggerMode] = useState(flow?.trigger_mode ?? 'keyword');
+  const [triggerKeywords, setTriggerKeywords] = useState(flow?.trigger_keywords ?? '');
+  const [greetingMessage, setGreetingMessage] = useState(flow?.greeting_message ?? '');
+  const [completionMessage, setCompletionMessage] = useState(flow?.completion_message ?? '');
+  const [steps, setSteps] = useState<FlowStep[]>(
+    flow?.steps ?? [{ id: '', label: '', prompt: '', type: 'text', required: true }]
+  );
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const updateStep = (index: number, field: keyof FlowStep, value: unknown) => {
+    setSteps(prev => prev.map((s, i) => i === index ? { ...s, [field]: value } : s));
+  };
+
+  const removeStep = (index: number) => {
+    if (steps.length <= 1) return;
+    setSteps(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const addStep = () => {
+    setSteps(prev => [...prev, { id: '', label: '', prompt: '', type: 'text', required: true }]);
+  };
+
+  const handleSave = async () => {
+    if (!name.trim()) { setError(t('flow_need_name')); return; }
+    const validSteps = steps.filter(s => s.id.trim() && s.prompt.trim());
+    if (validSteps.length === 0) { setError(t('flow_need_steps')); return; }
+
+    setSaving(true);
+    setError('');
+
+    const payload = {
+      name: name.trim(),
+      trigger_mode: triggerMode,
+      trigger_keywords: triggerKeywords.trim(),
+      greeting_message: greetingMessage.trim(),
+      steps: validSteps.map(s => ({
+        ...s,
+        id: s.id.trim(),
+        label: s.label.trim() || s.id.trim(),
+        prompt: s.prompt.trim(),
+        options: s.type === 'choice' && s.options ? s.options : undefined,
+      })),
+      completion_message: completionMessage.trim(),
+    };
+
+    let result;
+    if (isNew) {
+      result = await sendMsg({ type: 'MSG_CREATE_FLOW', payload });
+    } else {
+      result = await sendMsg({ type: 'MSG_UPDATE_FLOW', payload: { id: flow.id, ...payload } });
+    }
+
+    setSaving(false);
+    if (result.success) {
+      onSaved();
+    } else {
+      setError(result.error ?? t('flow_save_failed'));
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+          <h2 className="text-lg font-semibold text-gray-900">
+            {isNew
+              ? (lang === 'vi' ? 'Tạo kịch bản mới' : 'Create New Flow')
+              : (lang === 'vi' ? 'Sửa kịch bản' : 'Edit Flow')}
+          </h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+        </div>
+
+        {/* Body */}
+        <div className="px-6 py-4 space-y-5 overflow-y-auto flex-1">
+          {/* Flow name */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('flow_name')}</label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={t('flow_name_placeholder')}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          {/* Trigger mode */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('trigger_mode')}</label>
+            <select
+              value={triggerMode}
+              onChange={(e) => setTriggerMode(e.target.value as 'keyword' | 'first_message' | 'manual')}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="keyword">{t('trigger_keyword')}</option>
+              <option value="first_message">{t('trigger_first_message')}</option>
+              <option value="manual">{t('trigger_manual')}</option>
+            </select>
+          </div>
+
+          {/* Trigger keywords (only for keyword mode) */}
+          {triggerMode === 'keyword' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('trigger_keywords')}</label>
+              <input
+                value={triggerKeywords}
+                onChange={(e) => setTriggerKeywords(e.target.value)}
+                placeholder={t('trigger_keywords_placeholder')}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          )}
+
+          {/* Greeting message */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('greeting_message')}</label>
+            <textarea
+              value={greetingMessage}
+              onChange={(e) => setGreetingMessage(e.target.value)}
+              placeholder={t('greeting_placeholder')}
+              rows={2}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+            />
+          </div>
+
+          {/* Steps */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700">{t('flow_steps')}</label>
+              <button
+                onClick={addStep}
+                className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+              >
+                {t('add_step')}
+              </button>
+            </div>
+            <div className="space-y-3">
+              {steps.map((step, idx) => (
+                <div key={idx} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-semibold text-gray-500">
+                      {lang === 'vi' ? `Bước ${idx + 1}` : `Step ${idx + 1}`}
+                    </span>
+                    {steps.length > 1 && (
+                      <button
+                        onClick={() => removeStep(idx)}
+                        className="text-xs text-red-500 hover:text-red-700"
+                      >
+                        {t('delete')}
+                      </button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 mb-2">
+                    <input
+                      value={step.id}
+                      onChange={(e) => updateStep(idx, 'id', e.target.value.replace(/\s+/g, '_').toLowerCase())}
+                      placeholder={t('step_id')}
+                      className="px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                    <input
+                      value={step.label}
+                      onChange={(e) => updateStep(idx, 'label', e.target.value)}
+                      placeholder={t('step_label')}
+                      className="px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+                  <input
+                    value={step.prompt}
+                    onChange={(e) => updateStep(idx, 'prompt', e.target.value)}
+                    placeholder={t('step_prompt')}
+                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs mb-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                  <div className="flex items-center gap-3">
+                    <select
+                      value={step.type}
+                      onChange={(e) => updateStep(idx, 'type', e.target.value)}
+                      className="px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    >
+                      <option value="text">{t('step_type_text')}</option>
+                      <option value="choice">{t('step_type_choice')}</option>
+                      <option value="number">{t('step_type_number')}</option>
+                    </select>
+                    <label className="flex items-center gap-1 text-xs text-gray-600">
+                      <input
+                        type="checkbox"
+                        checked={step.required}
+                        onChange={(e) => updateStep(idx, 'required', e.target.checked)}
+                        className="rounded"
+                      />
+                      {t('step_required')}
+                    </label>
+                  </div>
+                  {step.type === 'choice' && (
+                    <input
+                      value={(step.options ?? []).join(', ')}
+                      onChange={(e) => updateStep(idx, 'options', e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
+                      placeholder={t('step_options_placeholder')}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs mt-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Completion message */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('completion_message')}</label>
+            <textarea
+              value={completionMessage}
+              onChange={(e) => setCompletionMessage(e.target.value)}
+              placeholder={t('completion_placeholder')}
+              rows={2}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+            />
+            <p className="text-xs text-gray-400 mt-1">{t('completion_hint')}</p>
+          </div>
+
+          {error && (
+            <div className="px-3 py-2 bg-red-50 text-red-700 text-sm rounded-lg">{error}</div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-gray-200 flex-shrink-0">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            {t('cancel')}
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="px-6 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          >
+            {saving ? t('saving') : t('save')}
           </button>
         </div>
       </div>
@@ -775,7 +1198,10 @@ function SettingsTab({ settings, updateSettings, licenseHook, healthData, onRefr
                 <div className="text-sm text-gray-500 mb-2">Chế độ tự động chỉ khả dụng cho gói Pro</div>
                 <div className="text-xs text-gray-400 mb-3">Gói {licenseHook.license.tier === 'free' ? 'Free' : 'Basic'} chỉ hiển thị gợi ý — cần xác nhận thủ công tất cả câu trả lời.</div>
                 <button
-                  onClick={() => setActiveTab('about')}
+                  onClick={() => {
+                    window.location.hash = 'about';
+                    setTimeout(() => window.dispatchEvent(new CustomEvent('buy-plan', { detail: 'pro' })), 150);
+                  }}
                   className="px-4 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 transition-colors"
                 >
                   Nâng cấp lên Pro
@@ -1236,82 +1662,65 @@ function ToggleSwitch({ enabled, onChange }: { enabled: boolean; onChange: (v: b
 
 const TEMPLATES = [
   {
-    id: 'thoi-trang',
-    icon: '👕',
-    vi: 'Thời trang',
-    en: 'Fashion',
-    descVi: '23 cặp Q&A: size, giá, ship, đổi trả, COD...',
-    descEn: '23 Q&A pairs: size, price, shipping, returns, COD...',
+    id: 'chao-hoi',
+    icon: '👋',
+    vi: 'Chào hỏi & Giới thiệu',
+    en: 'Greetings & Info',
+    descVi: '10 cặp Q&A: lời chào, giới thiệu shop, giờ làm việc, liên hệ...',
+    descEn: '10 Q&A pairs: greetings, shop info, hours, contact...',
     data: [
-      { question: 'Giá áo thun?', answer: 'Dạ áo thun giá từ 150k-250k tùy mẫu ạ. Bạn thích mẫu nào để em báo giá chính xác nhé?' },
-      { question: 'Giá áo hoodie?', answer: 'Áo hoodie giá 350k, size S-XL ạ' },
+      { question: 'Xin chào', answer: 'Chào bạn! Cảm ơn bạn đã nhắn tin cho shop. Em có thể giúp gì cho bạn ạ?' },
+      { question: 'Hi', answer: 'Hi bạn! Shop có thể giúp gì cho bạn ạ?' },
+      { question: 'Alo', answer: 'Dạ em đây, bạn cần tư vấn gì ạ?' },
+      { question: 'Có ai không?', answer: 'Dạ có ạ! Em đang online, bạn cần hỏi gì cứ nhắn nhé' },
+      { question: 'Shop ở đâu?', answer: 'Dạ bạn có thể xem địa chỉ shop trên trang cá nhân ạ. Bạn mua online shop ship toàn quốc nhé' },
+      { question: 'Giờ làm việc?', answer: 'Shop hoạt động từ 8h-22h hàng ngày ạ. Ngoài giờ bạn cứ nhắn, em sẽ trả lời sớm nhất' },
+      { question: 'Liên hệ thế nào?', answer: 'Bạn nhắn trực tiếp qua đây hoặc gọi hotline trên trang shop ạ' },
+      { question: 'Shop bán gì?', answer: 'Dạ bạn xem sản phẩm trên trang shop nhé, hoặc cho em biết bạn cần gì để em tư vấn ạ' },
+      { question: 'Cảm ơn', answer: 'Dạ không có gì ạ! Bạn cần gì cứ nhắn cho shop nhé 😊' },
+      { question: 'Tạm biệt', answer: 'Cảm ơn bạn đã ghé shop! Hẹn gặp lại bạn nhé 😊' },
+    ],
+  },
+  {
+    id: 'mua-hang',
+    icon: '🛒',
+    vi: 'Mua hàng & Thanh toán',
+    en: 'Orders & Payment',
+    descVi: '12 cặp Q&A: đặt hàng, giá, ship, COD, freeship, giảm giá...',
+    descEn: '12 Q&A pairs: ordering, price, shipping, COD, freeship, discount...',
+    data: [
+      { question: 'Giá bao nhiêu?', answer: 'Dạ bạn cho em biết sản phẩm nào để em báo giá chính xác ạ' },
+      { question: 'Đặt hàng thế nào?', answer: 'Bạn gửi em: Tên + SĐT + Địa chỉ + Sản phẩm là em đặt luôn ạ' },
       { question: 'Ship bao lâu?', answer: 'Ship nội thành 1-2 ngày, ngoại thành 3-5 ngày ạ' },
-      { question: 'Giao hàng mất mấy ngày?', answer: 'Ship nội thành 1-2 ngày, ngoại thành 3-5 ngày ạ' },
+      { question: 'Phí ship bao nhiêu?', answer: 'Dạ tùy khoảng cách ạ. Bạn gửi địa chỉ để em tính chính xác nhé' },
+      { question: 'Có freeship không?', answer: 'Dạ freeship cho đơn từ 300k nhé bạn' },
       { question: 'Có COD không?', answer: 'Có COD nhé bạn, nhận hàng rồi trả tiền ạ' },
-      { question: 'Đổi trả thế nào?', answer: 'Đổi trả trong 7 ngày nếu lỗi do shop ạ' },
-      { question: 'Có freeship không?', answer: 'Freeship cho đơn từ 300k nhé bạn' },
       { question: 'Thanh toán bằng gì?', answer: 'Shop nhận chuyển khoản ngân hàng và COD ạ' },
       { question: 'Còn hàng không?', answer: 'Dạ bạn cho em biết sản phẩm nào để em kiểm tra ạ' },
-      { question: 'Có giảm giá không?', answer: 'Dạ hiện tại shop đang có chương trình giảm 10% cho đơn từ 500k ạ' },
-      { question: 'Size M vòng ngực?', answer: 'Size M vòng ngực 88-92cm ạ' },
-      { question: 'Size L vòng ngực?', answer: 'Size L vòng ngực 92-96cm ạ' },
-      { question: 'Size XL vòng ngực?', answer: 'Size XL vòng ngực 96-100cm ạ' },
-      { question: 'Bảng size?', answer: 'Dạ bạn xem bảng size: S(80-84), M(88-92), L(92-96), XL(96-100) vòng ngực ạ' },
-      { question: 'Có size XL không?', answer: 'Dạ bạn cho em biết sản phẩm cụ thể để em check size ạ' },
-      { question: 'Hàng có sẵn không?', answer: 'Dạ hàng có sẵn, bạn đặt hôm nay mai shop gửi luôn ạ' },
-      { question: 'Mấy giờ ship?', answer: 'Shop gửi hàng trước 16h hàng ngày ạ' },
-      { question: 'Có màu gì?', answer: 'Dạ bạn cho em biết sản phẩm nào để em check màu còn hàng ạ' },
-      { question: 'Đặt hàng thế nào?', answer: 'Bạn gửi em: Tên + SĐT + Địa chỉ + Sản phẩm (size, màu) là em đặt luôn ạ' },
-      { question: 'Shop ở đâu?', answer: 'Shop ở Hà Nội ạ. Bạn mua online ship toàn quốc nhé' },
-      { question: 'Hàng real không?', answer: 'Dạ 100% hàng chính hãng, shop cam kết đổi trả nếu phát hiện hàng giả ạ' },
-      { question: 'Giá sỉ bao nhiêu?', answer: 'Dạ mua từ 10 cái trở lên shop có giá sỉ ạ. Bạn inbox số lượng để em báo giá nhé' },
-      { question: 'Khi nào có hàng mới?', answer: 'Shop update mẫu mới hàng tuần ạ. Bạn follow page để cập nhật nhé' },
+      { question: 'Có giảm giá không?', answer: 'Dạ hiện tại shop đang có chương trình khuyến mãi. Bạn xem chi tiết trên trang shop nhé' },
+      { question: 'Mua nhiều có giảm không?', answer: 'Dạ mua số lượng lớn shop có giá tốt ạ. Bạn cho em biết số lượng để em báo giá nhé' },
+      { question: 'Đơn hàng tới đâu rồi?', answer: 'Dạ bạn cho em mã đơn hoặc SĐT để em kiểm tra trạng thái đơn hàng ạ' },
+      { question: 'Hủy đơn được không?', answer: 'Dạ nếu đơn chưa gửi thì hủy được ạ. Bạn cho em mã đơn để em kiểm tra nhé' },
     ],
   },
   {
-    id: 'my-pham',
-    icon: '💄',
-    vi: 'Mỹ phẩm',
-    en: 'Cosmetics',
-    descVi: '14 cặp Q&A: loại da, hạn sử dụng, combo, tester...',
-    descEn: '14 Q&A pairs: skin type, expiry, combo, tester...',
+    id: 'khieu-nai',
+    icon: '🛡️',
+    vi: 'Khiếu nại & Hỗ trợ',
+    en: 'Complaints & Support',
+    descVi: '10 cặp Q&A: đổi trả, lỗi sản phẩm, giao sai, hoàn tiền...',
+    descEn: '10 Q&A pairs: returns, defects, wrong item, refund...',
     data: [
-      { question: 'Kem này có tốt không?', answer: 'Dạ sản phẩm được nhiều chị em review tốt lắm ạ. Bạn cho em biết loại da để em tư vấn phù hợp nhé' },
-      { question: 'Da dầu dùng được không?', answer: 'Dạ được ạ, sản phẩm phù hợp mọi loại da kể cả da dầu' },
-      { question: 'Có hàng chính hãng không?', answer: '100% hàng chính hãng, có tem chống giả, bạn yên tâm ạ' },
-      { question: 'Giá bao nhiêu?', answer: 'Dạ bạn cho em biết sản phẩm nào để em báo giá chính xác ạ' },
-      { question: 'Ship bao lâu?', answer: 'Ship nội thành 1-2 ngày, ngoại thành 3-5 ngày ạ' },
-      { question: 'Có COD không?', answer: 'Có COD nhé bạn, nhận hàng rồi trả tiền ạ' },
-      { question: 'Đổi trả thế nào?', answer: 'Đổi trả trong 7 ngày nếu sản phẩm lỗi hoặc không đúng mô tả ạ' },
-      { question: 'Có freeship không?', answer: 'Freeship cho đơn từ 300k nhé bạn' },
-      { question: 'Hạn sử dụng?', answer: 'Dạ sản phẩm còn hạn sử dụng dài, bạn yên tâm ạ. Em gửi ảnh date cho bạn nhé' },
-      { question: 'Mua combo có giảm không?', answer: 'Dạ mua combo 2 sản phẩm giảm 10%, 3 sản phẩm giảm 15% ạ' },
-      { question: 'Dùng bao lâu thấy hiệu quả?', answer: 'Dạ thường 2-4 tuần sẽ thấy cải thiện rõ rệt ạ' },
-      { question: 'Có tester không?', answer: 'Dạ shop có bán size mini/tester để bạn dùng thử ạ' },
-      { question: 'Đặt hàng thế nào?', answer: 'Bạn gửi em: Tên + SĐT + Địa chỉ + Sản phẩm là em đặt luôn ạ' },
-      { question: 'Thanh toán bằng gì?', answer: 'Shop nhận chuyển khoản ngân hàng và COD ạ' },
-    ],
-  },
-  {
-    id: 'do-an',
-    icon: '🍜',
-    vi: 'Đồ ăn / F&B',
-    en: 'Food & Beverage',
-    descVi: '12 cặp Q&A: menu, ship, giờ mở cửa, combo...',
-    descEn: '12 Q&A pairs: menu, delivery, hours, combo...',
-    data: [
-      { question: 'Giá bao nhiêu?', answer: 'Dạ bạn cho em biết món nào để em báo giá ạ' },
-      { question: 'Menu có gì?', answer: 'Dạ bạn xem menu trên page shop nhé, hoặc em gửi ảnh menu cho bạn ạ' },
-      { question: 'Ship bao lâu?', answer: 'Dạ ship trong vòng 30-45 phút khu vực nội thành ạ' },
-      { question: 'Có ship xa không?', answer: 'Dạ ship qua GrabFood/ShopeeFood toàn thành phố ạ' },
-      { question: 'Đặt mấy phần có giảm không?', answer: 'Dạ đặt từ 5 phần trở lên giảm 10% ạ' },
-      { question: 'Mấy giờ đóng cửa?', answer: 'Shop mở từ 8h-22h hàng ngày ạ' },
-      { question: 'Có giao tận nơi không?', answer: 'Có ạ, bạn gửi địa chỉ để em tính phí ship nhé' },
-      { question: 'Thanh toán bằng gì?', answer: 'Shop nhận chuyển khoản, tiền mặt và COD ạ' },
-      { question: 'Có đồ chay không?', answer: 'Dạ có ạ, shop có menu chay riêng. Bạn cần em gửi không ạ?' },
-      { question: 'Đặt hàng thế nào?', answer: 'Bạn gửi em: Món + Số lượng + Địa chỉ + SĐT là em đặt luôn ạ' },
-      { question: 'Phí ship bao nhiêu?', answer: 'Dạ tùy khoảng cách, thường 15k-30k ạ. Bạn gửi địa chỉ em tính chính xác nhé' },
-      { question: 'Có khuyến mãi gì không?', answer: 'Dạ hiện shop đang có combo giảm 20% cho đơn từ 200k ạ' },
+      { question: 'Đổi trả thế nào?', answer: 'Shop hỗ trợ đổi trả trong 7 ngày nếu sản phẩm lỗi hoặc không đúng mô tả ạ' },
+      { question: 'Hàng bị lỗi', answer: 'Dạ bạn chụp ảnh sản phẩm lỗi gửi em nhé, shop sẽ đổi mới hoặc hoàn tiền cho bạn ạ' },
+      { question: 'Giao sai hàng', answer: 'Dạ xin lỗi bạn! Bạn chụp ảnh sản phẩm nhận được gửi em, shop sẽ gửi lại đúng hàng ngay ạ' },
+      { question: 'Hàng bị vỡ/hỏng', answer: 'Dạ bạn chụp ảnh tình trạng hàng và kiện hàng gửi em nhé, shop sẽ xử lý ngay ạ' },
+      { question: 'Hoàn tiền thế nào?', answer: 'Dạ sau khi xác nhận, shop sẽ hoàn tiền qua chuyển khoản trong 1-3 ngày làm việc ạ' },
+      { question: 'Chưa nhận được hàng', answer: 'Dạ bạn cho em mã đơn hoặc SĐT để em kiểm tra với bên vận chuyển nhé' },
+      { question: 'Giao chậm quá', answer: 'Dạ xin lỗi bạn! Em kiểm tra ngay trạng thái đơn hàng. Bạn cho em mã đơn nhé' },
+      { question: 'Muốn khiếu nại', answer: 'Dạ bạn mô tả vấn đề gặp phải, em sẽ chuyển lên bộ phận xử lý ngay ạ' },
+      { question: 'Không liên lạc được', answer: 'Dạ xin lỗi bạn vì bất tiện! Em đang hỗ trợ bạn ngay đây ạ. Bạn cần giúp gì nhé?' },
+      { question: 'Hàng không giống ảnh', answer: 'Dạ bạn chụp ảnh thực tế gửi em nhé, shop sẽ kiểm tra và hỗ trợ đổi trả nếu đúng ạ' },
     ],
   },
 ];
@@ -1321,6 +1730,7 @@ function TemplateImportSection() {
   const [importing, setImporting] = useState<string | null>(null);
   const [imported, setImported] = useState<Set<string>>(new Set());
   const [limitError, setLimitError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   const handleImport = useCallback(async (template: typeof TEMPLATES[0]) => {
     setImporting(template.id);
@@ -1332,6 +1742,7 @@ function TemplateImportSection() {
       });
       if (result.success) {
         setImported(prev => new Set(prev).add(template.id));
+        setExpanded(template.id);
       } else {
         const err = result.error ?? '';
         if (err.includes('giới hạn') || err.includes('limit') || err.includes('LIMIT')) {
@@ -1346,28 +1757,36 @@ function TemplateImportSection() {
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-6">
       <h3 className="text-sm font-semibold text-gray-900 mb-1">
-        {lang === 'vi' ? '📦 Bộ mẫu theo ngành — Import 1 click' : '📦 Industry Templates — 1 click import'}
+        {lang === 'vi' ? '📦 Bộ mẫu theo chủ đề — Import 1 click' : '📦 Topic Templates — 1 click import'}
       </h3>
       <p className="text-sm text-gray-500 mb-4">
         {lang === 'vi'
-          ? 'Chọn ngành của bạn, import bộ câu hỏi-trả lời mẫu. Sau đó chỉnh sửa cho phù hợp với shop.'
-          : 'Select your industry, import sample Q&A pairs. Then customize to fit your shop.'}
+          ? 'Chọn chủ đề, import bộ câu hỏi-trả lời mẫu. Sau đó chỉnh sửa cho phù hợp với shop.'
+          : 'Select a topic, import sample Q&A pairs. Then customize to fit your shop.'}
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {TEMPLATES.map((tpl) => {
           const isDone = imported.has(tpl.id);
           const isLoading = importing === tpl.id;
+          const isExpanded = expanded === tpl.id;
           return (
             <div key={tpl.id} className={`border rounded-xl p-4 transition-colors ${isDone ? 'border-green-300 bg-green-50' : 'border-gray-200 hover:border-blue-300'}`}>
               <div className="text-2xl mb-2">{tpl.icon}</div>
               <h4 className="font-semibold text-gray-900 text-sm">{lang === 'vi' ? tpl.vi : tpl.en}</h4>
               <p className="text-xs text-gray-500 mt-1 mb-3">{lang === 'vi' ? tpl.descVi : tpl.descEn}</p>
+              {isDone && (
+                <div className="mb-3 px-2 py-1.5 bg-green-100 border border-green-200 rounded-lg text-center">
+                  <span className="text-green-700 text-xs font-semibold">
+                    ✓ {lang === 'vi' ? `Đã import ${tpl.data.length} cặp Q&A` : `Imported ${tpl.data.length} Q&A pairs`}
+                  </span>
+                </div>
+              )}
               <button
-                onClick={() => handleImport(tpl)}
-                disabled={isLoading || isDone || !!limitError}
+                onClick={() => isDone ? setExpanded(isExpanded ? null : tpl.id) : handleImport(tpl)}
+                disabled={isLoading || !!limitError}
                 className={`w-full py-1.5 text-xs font-medium rounded-lg transition-colors ${
                   isDone
-                    ? 'bg-green-100 text-green-700 cursor-default'
+                    ? 'bg-green-600 text-white hover:bg-green-700 cursor-pointer'
                     : isLoading
                     ? 'bg-gray-100 text-gray-400 cursor-wait'
                     : limitError
@@ -1375,8 +1794,22 @@ function TemplateImportSection() {
                     : 'bg-blue-600 text-white hover:bg-blue-700'
                 }`}
               >
-                {isDone ? '✓ Đã import' : isLoading ? 'Đang import...' : lang === 'vi' ? 'Import bộ mẫu' : 'Import template'}
+                {isDone
+                  ? (isExpanded
+                    ? (lang === 'vi' ? '▲ Ẩn danh sách' : '▲ Hide list')
+                    : (lang === 'vi' ? '▼ Xem danh sách Q&A' : '▼ View Q&A list'))
+                  : isLoading ? (lang === 'vi' ? 'Đang import...' : 'Importing...') : (lang === 'vi' ? 'Import bộ mẫu' : 'Import template')}
               </button>
+              {isExpanded && (
+                <div className="mt-3 max-h-48 overflow-y-auto border border-green-200 rounded-lg divide-y divide-green-100">
+                  {tpl.data.map((pair, i) => (
+                    <div key={i} className="px-3 py-2 text-xs">
+                      <div className="font-medium text-gray-800">Q: {pair.question}</div>
+                      <div className="text-gray-500 mt-0.5">A: {pair.answer}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}
@@ -1482,6 +1915,16 @@ function AboutTab({ licenseHook }: { licenseHook: ReturnType<typeof useLicense> 
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [buyTarget, setBuyTarget] = useState<'basic' | 'pro' | null>(null);
   const [showDonate, setShowDonate] = useState(false);
+
+  // Listen for buy-plan events from other tabs (e.g. Settings "Nâng cấp lên Pro")
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const plan = (e as CustomEvent).detail;
+      if (plan === 'basic' || plan === 'pro') setBuyTarget(plan);
+    };
+    window.addEventListener('buy-plan', handler);
+    return () => window.removeEventListener('buy-plan', handler);
+  }, []);
 
   const handleActivate = async () => {
     if (!keyInput.trim()) return;
@@ -1716,7 +2159,13 @@ function AboutTab({ licenseHook }: { licenseHook: ReturnType<typeof useLicense> 
         <div className="grid grid-cols-2 gap-6">
           <div className="bg-white rounded-xl border border-gray-200 p-6">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white text-lg font-bold">S</div>
+              <div className="w-10 h-10 rounded-lg flex items-center justify-center shadow-sm" style={{ background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)' }}>
+                <svg viewBox="0 0 32 32" width="26" height="26" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M4 7a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v3a3 3 0 0 1-3 3h-2l-3 3v-3H7a3 3 0 0 1-3-3V7z" fill="#fff" fillOpacity="0.4"/>
+                  <path d="M11 14a3 3 0 0 1 3-3h11a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3h-4l-4 4v-4h-3a3 3 0 0 1-3-3v-6z" fill="#fff"/>
+                  <path d="M20 14.5l-3 4.5h2.5l-1 3.5 3.5-5h-2.5l0.5-3z" fill="#2563eb"/>
+                </svg>
+              </div>
               <div>
                 <div className="font-bold text-gray-900">ShopReply</div>
                 <div className="text-xs text-gray-500">{t('ai_auto_reply_fb_zalo')}</div>
@@ -1786,6 +2235,8 @@ function AboutTab({ licenseHook }: { licenseHook: ReturnType<typeof useLicense> 
                   <div className="text-xs text-gray-500 mt-0.5">{t('donate_qr_desc')}</div>
                 </div>
               </button>
+              {/* LemonSqueezy donate option — hidden (store application rejected 2026-04-16) */}
+              {false && (
               <button
                 onClick={() => {
                   browser.tabs.create({ url: 'https://shopreply.lemonsqueezy.com/checkout/buy/8884c423-8132-487d-b2ac-6c133747540f' });
@@ -1799,6 +2250,7 @@ function AboutTab({ licenseHook }: { licenseHook: ReturnType<typeof useLicense> 
                   <div className="text-xs text-gray-500 mt-0.5">{t('donate_card_desc')}</div>
                 </div>
               </button>
+              )}
             </div>
           </div>
         </div>
@@ -1853,7 +2305,8 @@ function AboutTab({ licenseHook }: { licenseHook: ReturnType<typeof useLicense> 
                 </div>
               </button>
 
-              {/* Option 2: LemonSqueezy (International) */}
+              {/* Option 2: LemonSqueezy (International) — hidden (store application rejected 2026-04-16) */}
+              {false && (
               <button
                 onClick={() => {
                   const lsUrl = buyTarget === 'pro'
@@ -1872,6 +2325,7 @@ function AboutTab({ licenseHook }: { licenseHook: ReturnType<typeof useLicense> 
                   <div className="text-xs text-gray-500 mt-0.5">{t('pay_international_desc')}</div>
                 </div>
               </button>
+              )}
             </div>
 
             {/* Footer */}

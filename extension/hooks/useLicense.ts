@@ -20,7 +20,6 @@ export interface TierLimits {
   maxQA: number
   autoReply: boolean
   multiPlatform: boolean
-  scanHistory: boolean
   customTone: boolean
   aiSuggest: boolean
   importFile: boolean
@@ -31,7 +30,6 @@ const TIER_LIMITS: Record<Tier, TierLimits> = {
     maxQA: 30,
     autoReply: false,
     multiPlatform: false,
-    scanHistory: false,
     customTone: false,
     aiSuggest: false,
     importFile: true,
@@ -40,7 +38,6 @@ const TIER_LIMITS: Record<Tier, TierLimits> = {
     maxQA: 500,
     autoReply: false,
     multiPlatform: false,
-    scanHistory: true,
     customTone: false,
     aiSuggest: true,
     importFile: true,
@@ -49,7 +46,6 @@ const TIER_LIMITS: Record<Tier, TierLimits> = {
     maxQA: Infinity,
     autoReply: true,
     multiPlatform: true,
-    scanHistory: true,
     customTone: true,
     aiSuggest: true,
     importFile: true,
@@ -173,12 +169,15 @@ export function useLicense() {
       if (data.subscriptionStatus) {
         updated.subscriptionStatus = data.subscriptionStatus
       }
-      if (data.renewsAt) {
+      if (data.renewsAt !== undefined) {
         updated.renewsAt = data.renewsAt
       }
 
-      // Check if expired after sync
-      if (updated.expiresAt && new Date(updated.expiresAt) < new Date()) {
+      // Check if expired or subscription terminated
+      const isExpired = updated.expiresAt && new Date(updated.expiresAt) < new Date()
+      const isTerminated = updated.subscriptionStatus === 'expired'
+
+      if (isExpired || isTerminated) {
         // Expired — revert to free
         await browser.storage.local.set({ [STORAGE_KEY]: DEFAULT_LICENSE })
         setLicense(DEFAULT_LICENSE)
