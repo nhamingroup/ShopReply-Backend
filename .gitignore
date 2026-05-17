@@ -1,0 +1,11 @@
+# Build artifacts (never committed)
+*.pyc
+__pycache__/
+.env
+*.log
+build/
+dist/
+node_modules/
+
+# This repo only hosts release artifacts.
+# Source code lives in a private location.
